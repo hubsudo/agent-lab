@@ -1,0 +1,14 @@
+[project]
+name = "agent-lab"
+version = "0.1.0"
+description = "A reproducible learning lab for AI agent systems, starting with memory systems."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
