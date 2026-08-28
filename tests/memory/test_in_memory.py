@@ -31,6 +31,31 @@ class InMemoryStoreTests(unittest.TestCase):
         self.assertIsNone(store.get(item.id))
         self.assertFalse(store.delete(item.id))
 
+    def test_add_rejects_duplicate_ids(self):
+        store = InMemoryStore()
+        item = MemoryItem(content="one", id="memory-1")
+        store.add(item)
+
+        with self.assertRaises(ValueError):
+            store.add(MemoryItem(content="two", id="memory-1"))
+
+    def test_update_replaces_item_without_changing_its_position(self):
+        store = InMemoryStore()
+        first = MemoryItem(content="first")
+        second = MemoryItem(content="second")
+        store.add(first)
+        store.add(second)
+
+        updated = MemoryItem(content="updated", id=first.id)
+        self.assertEqual(store.update(updated), updated)
+        self.assertEqual(store.list(), [updated, second])
+
+    def test_update_requires_an_existing_item(self):
+        store = InMemoryStore()
+
+        with self.assertRaises(KeyError):
+            store.update(MemoryItem(content="missing", id="missing"))
+
 
 if __name__ == "__main__":
     unittest.main()

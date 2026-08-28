@@ -1,8 +1,12 @@
-from agent_lab.memory import InMemoryStore, MemoryItem
+from agent_lab.memory import InMemoryStore, MemoryService
 
 
-store = InMemoryStore()
-store.add(MemoryItem(content="The user prefers concise explanations", kind="preference"))
+service = MemoryService(InMemoryStore())
+service.remember(
+    "The user prefers concise explanations",
+    type="preference",
+    source="conversation",
+)
 
-for memory in store.list():
-    print(f"[{memory.kind}] {memory.content}")
+for memory in service.recall():
+    print(f"[{memory.type}] {memory.content}")
