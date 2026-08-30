@@ -307,9 +307,12 @@ recall(*, type=None, source=None, include_forgotten=False,
 - `list()` 默认返回 `ACTIVE` 且未被遗忘的 Memory；`status=None` 表示
   不过滤状态（`SUPERSEDED` / `ARCHIVED` 也会返回）；`status` 传具体值时
   精确匹配。`include_forgotten=True` 包含 `forgotten_at` 非空的条目。
-- `recall()` 等价于 `list(status=ACTIVE, ...)` 并叠加 legacy 过滤
-  `importance > 0`（见 §8）。它不提供 `status` 参数，保持 Phase 01
-  签名。
+- `recall()` 默认返回 ACTIVE、未遗忘且 `importance > 0` 的 Memory。其中
+  `importance > 0` 是 Phase 01 的 legacy 兼容过滤（见 §8）。它不提供
+  `status` 参数，保持 Phase 01 签名。
+- `include_forgotten=True` 同时解除 `forgotten_at` 过滤与 legacy
+  `importance > 0` 过滤——两类历史上被隐藏的 Memory 都可见，与 Phase 01
+  的 `include_forgotten` 语义一致。
 - `type` / `source` 为精确匹配过滤器；返回顺序与 Store 的 `list()` 顺序
   一致；`limit` 为非负整数，负数抛出 `ValueError`。
 
@@ -430,7 +433,7 @@ Phase 02 对 Phase 01 契约的变更与保留清单：
 | --- | --- |
 | `valid_at` → `valid_from` | 完全重命名，不保留兼容别名；受影响的 Phase 01 测试同步更新 |
 | `forget()` 的 importance=0 语义 | 已迁移到 `forgotten_at`；`forget()` 不再修改 `importance`，恢复使用 `unforget()` |
-| `recall()` 的 `importance > 0` 过滤 | 保留为 legacy 兼容（Phase 01 存在以 importance=0 表达遗忘的数据）；标记为待移除，Phase 09 Forgetting 时清理 |
+| `recall()` 的 `importance > 0` 过滤 | 保留为 legacy 兼容（Phase 01 存在以 importance=0 表达遗忘的数据）；仅在默认视图中生效，`include_forgotten=True` 会解除该过滤（与 Phase 01 行为一致）；标记为待移除，Phase 09 Forgetting 时清理 |
 | 默认 `type="fact"` | 保留为 legacy 默认值；不属于 `MemoryType` 标准集合 |
 | `kind` 别名 | 继续作为 `type` 的兼容别名 |
 | `MemoryStatus` 不含 `DELETED` | 删除是 Store 操作而非状态（Phase 02 指令中的四状态枚举据此调整） |

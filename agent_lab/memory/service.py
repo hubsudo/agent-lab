@@ -1,4 +1,4 @@
-"""Business façade for the Phase 01 memory core."""
+"""Business façade for the agent-lab memory system."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def _utc_now() -> datetime:
 class MemoryService:
     """Apply memory policies while keeping persistence behind ``MemoryStore``.
 
-    Phase 01 intentionally provides exact filtering only. Relevance search,
+    Phase 02 adds lifecycle and forgetting policies on top of exact filtering. Relevance search,
     ranking, extraction, and consolidation strategies are introduced in later
     phases without changing this façade's dependency on ``MemoryStore``.
     """
@@ -87,9 +87,12 @@ class MemoryService:
     ) -> list[MemoryItem]:
         """Agent-facing candidate fetch: Phase 01 compat plus basic filters.
 
-        Filters are deterministic only: status ACTIVE, not forgotten, and
-        the legacy ``importance > 0`` marker from Phase 01 (scheduled for
-        removal in Phase 09). No similarity, ranking, or recency here.
+        The default view is deterministic only: status ACTIVE, not
+        forgotten, and not hidden by the legacy ``importance > 0`` marker
+        from Phase 01 (scheduled for removal in Phase 09).
+        ``include_forgotten=True`` lifts both the ``forgotten_at`` filter
+        and the legacy importance filter, matching Phase 01 semantics. No
+        similarity, ranking, or recency here.
         """
 
         if limit is not None and limit < 0:
@@ -98,8 +101,11 @@ class MemoryService:
         items = self._store.list()
         items = [item for item in items if item.status == MemoryStatus.ACTIVE]
         if not include_forgotten:
-            items = [item for item in items if item.forgotten_at is None]
-        items = [item for item in items if item.importance > 0]
+            items = [
+                item
+                for item in items
+                if item.forgotten_at is None and item.importance > 0
+            ]
         if type is not None:
             items = [item for item in items if item.type == type]
         if source is not None:

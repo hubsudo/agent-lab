@@ -159,19 +159,29 @@ class MemoryServiceTests(unittest.TestCase):
 
         unchanged = self.service.unforget(item.id)
         self.assertIsNone(unchanged.forgotten_at)
-        self.assertEqual(unchanged.updated_at, item.updated_at)
+        self.assertIs(unchanged, item)
 
     def test_repeated_forget_refreshes_forgotten_at(self):
         item = self.service.remember("again")
         first = self.service.forget(item.id)
         second = self.service.forget(item.id)
         self.assertGreaterEqual(second.forgotten_at, first.forgotten_at)
+        self.assertIsNot(second, first)
 
     def test_forget_and_unforget_require_existing_items(self):
         with self.assertRaises(KeyError):
             self.service.forget("missing")
         with self.assertRaises(KeyError):
             self.service.unforget("missing")
+
+    def test_recall_include_forgotten_surfaces_legacy_importance_zero(self):
+        legacy = self.service.remember("legacy hidden", importance=0.0)
+
+        self.assertNotIn(legacy.id, [i.id for i in self.service.recall()])
+        self.assertIn(
+            legacy.id,
+            [i.id for i in self.service.recall(include_forgotten=True)],
+        )
 
 
 if __name__ == "__main__":
