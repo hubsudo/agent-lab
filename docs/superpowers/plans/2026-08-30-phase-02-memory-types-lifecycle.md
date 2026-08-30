@@ -234,6 +234,7 @@ git commit -m "feat: MemoryType and MemoryStatus lifecycle enums"
 
 **Files:**
 - Modify: `agent_lab/memory/models.py`（整文件替换）
+- Modify: `agent_lab/memory/lifecycle.py`（`_TRANSITIONS` 只读化，评审建议）
 - Modify: `agent_lab/memory/service.py:25-33`（`_UPDATABLE_FIELDS`）、`service.py:51`、`service.py:64`（valid_at → valid_from）
 - Modify: `tests/memory/test_service.py:25`
 - Test: `tests/memory/test_lifecycle.py`（追加模型测试）
@@ -478,6 +479,28 @@ class MemoryItem:
         return self.type
 ```
 
+- [ ] **Step 3b: 加固 lifecycle._TRANSITIONS（Task 1 评审建议）**
+
+`agent_lab/memory/lifecycle.py`：imports 区加入：
+
+```python
+from types import MappingProxyType
+```
+
+将 `_TRANSITIONS` 的声明与字典字面量替换为（`is_valid_transition` 不变）：
+
+```python
+_TRANSITIONS: MappingProxyType[MemoryStatus, frozenset[MemoryStatus]] = MappingProxyType(
+    {
+        MemoryStatus.ACTIVE: frozenset(
+            {MemoryStatus.SUPERSEDED, MemoryStatus.ARCHIVED}
+        ),
+        MemoryStatus.SUPERSEDED: frozenset(),
+        MemoryStatus.ARCHIVED: frozenset({MemoryStatus.ACTIVE}),
+    }
+)
+```
+
 - [ ] **Step 4: service.py 机械重命名**
 
 `agent_lab/memory/service.py` 三处修改：
@@ -683,6 +706,7 @@ git commit -m "feat: migrate forget semantics to forgotten_at with unforget"
 
 **Files:**
 - Modify: `agent_lab/memory/service.py`（imports、`update()` 插入门控、新增 `_transition()` / `archive()` / `restore()`）
+- Modify: `tests/memory/test_lifecycle.py`（追加转换表直接测试，Task 1 评审建议）
 - Test: `tests/memory/test_service.py`
 
 - [ ] **Step 1: 写失败测试**
@@ -748,6 +772,34 @@ from agent_lab.memory import InMemoryStore, MemoryItem, MemoryService, MemorySta
                 self.service.remember("active two").id,
                 forgotten_at=datetime.now(timezone.utc),
             )
+```
+
+并在 `tests/memory/test_lifecycle.py` 的 `MemoryStatusTests` 类中追加：
+
+```python
+    def test_transition_table_rules(self):
+        self.assertTrue(
+            is_valid_transition(MemoryStatus.ACTIVE, MemoryStatus.SUPERSEDED)
+        )
+        self.assertTrue(
+            is_valid_transition(MemoryStatus.ACTIVE, MemoryStatus.ARCHIVED)
+        )
+        self.assertTrue(
+            is_valid_transition(MemoryStatus.ARCHIVED, MemoryStatus.ACTIVE)
+        )
+        self.assertFalse(
+            is_valid_transition(MemoryStatus.SUPERSEDED, MemoryStatus.ACTIVE)
+        )
+        self.assertFalse(
+            is_valid_transition(MemoryStatus.SUPERSEDED, MemoryStatus.ARCHIVED)
+        )
+```
+
+同时将该文件 import 头改为：
+
+```python
+from agent_lab.memory import MemoryItem, MemoryStatus, MemoryType
+from agent_lab.memory.lifecycle import is_valid_transition
 ```
 
 - [ ] **Step 2: 运行验证失败**
@@ -818,7 +870,7 @@ Expected: OK，全部通过
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agent_lab/memory/service.py tests/memory/test_service.py
+git add agent_lab/memory/service.py tests/memory/test_service.py tests/memory/test_lifecycle.py
 git commit -m "feat: archive/restore lifecycle transitions and update gating"
 ```
 
