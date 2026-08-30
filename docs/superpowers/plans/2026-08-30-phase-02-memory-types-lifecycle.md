@@ -540,7 +540,7 @@ Expected: OK，全部通过
 - [ ] **Step 6: Commit**
 
 ```bash
-git add agent_lab/memory/models.py agent_lab/memory/service.py tests/memory/test_lifecycle.py tests/memory/test_service.py
+git add agent_lab/memory/models.py agent_lab/memory/lifecycle.py agent_lab/memory/service.py tests/memory/test_lifecycle.py tests/memory/test_service.py
 git commit -m "feat: expand MemoryItem with status, forgotten_at, and valid interval"
 ```
 
@@ -552,6 +552,7 @@ git commit -m "feat: expand MemoryItem with status, forgotten_at, and valid inte
 
 **Files:**
 - Modify: `agent_lab/memory/service.py`（imports、`recall()` 整方法替换、`forget()` 整方法替换并新增 `unforget()` 与 `_require()`）
+- Modify: `tests/memory/test_lifecycle.py`（replace 保持性回归 + valid 区间边界断言，Task 2 评审建议）
 - Test: `tests/memory/test_service.py`
 
 - [ ] **Step 1: 写失败测试**
@@ -601,6 +602,46 @@ git commit -m "feat: expand MemoryItem with status, forgotten_at, and valid inte
             self.service.forget("missing")
         with self.assertRaises(KeyError):
             self.service.unforget("missing")
+```
+
+在 `tests/memory/test_lifecycle.py` 的 `MemoryItemLifecycleTests` 类末尾追加（Task 2 评审建议：`replace()` 是 Tasks 3–7 所有变更的实现机制，其保持性行为需要回归测试）——该文件 import 头补充：
+
+```python
+from dataclasses import replace
+from types import MappingProxyType
+```
+
+新增测试：
+
+```python
+    def test_replace_preserves_unspecified_fields(self):
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        item = MemoryItem(
+            content="original",
+            type=MemoryType.EPISODIC,
+            valid_from=start,
+            metadata={"topic": "travel"},
+            provenance={"message_id": "m-1"},
+        )
+
+        clone = replace(item, forgotten_at=start)
+
+        self.assertEqual(clone.id, item.id)
+        self.assertEqual(clone.content, "original")
+        self.assertEqual(clone.type, "episodic")
+        self.assertEqual(clone.valid_from, start)
+        self.assertIsNone(clone.valid_until)
+        self.assertIs(clone.status, MemoryStatus.ACTIVE)
+        self.assertEqual(clone.metadata, {"topic": "travel"})
+        self.assertEqual(clone.provenance, {"message_id": "m-1"})
+        self.assertIsInstance(clone.metadata, MappingProxyType)
+```
+
+并在 `test_valid_interval_must_be_ordered` 末尾追加边界断言（`valid_from == valid_until` 合法）：
+
+```python
+        point = MemoryItem(content="point", valid_from=start, valid_until=start)
+        self.assertEqual(point.valid_from, point.valid_until)
 ```
 
 - [ ] **Step 2: 运行验证失败**
@@ -696,7 +737,7 @@ Expected: OK，全部通过（Phase 01 的 `test_recall_supports_exact_filters_a
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agent_lab/memory/service.py tests/memory/test_service.py
+git add agent_lab/memory/service.py tests/memory/test_service.py tests/memory/test_lifecycle.py
 git commit -m "feat: migrate forget semantics to forgotten_at with unforget"
 ```
 
