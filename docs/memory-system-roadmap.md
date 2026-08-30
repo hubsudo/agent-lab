@@ -159,19 +159,27 @@ Memory
 
 详细设计见 [Memory System Specification](./memory-system-spec.md)。
 
-### Phase 02 — Memory Types
+### Phase 02 — Memory Types & Lifecycle
 
 #### 目标
 
-- 区分 Working / Short-Term / Long-Term Memory
-- 理解不同 Memory 的生命周期
-- 建立统一数据模型
+- 建立标准 Memory 类型集合，同时保持 `type` 字段开放可扩展
+- 定义 Memory 生命周期状态与状态转换规则
+- 将遗忘建模为与状态正交的独立维度
+- 以 `MemoryService` 领域操作承载生命周期
 
 #### 产出
 
-- `MemoryType`
-- `MemoryMetadata`
-- `MemoryLifecycle`
+- `MemoryType`（WORKING / EPISODIC / SEMANTIC / PROCEDURAL，`type` 字段开放）
+- `MemoryStatus`（ACTIVE / SUPERSEDED / ARCHIVED；删除是操作而非状态）
+- Lifecycle 转换规则与校验
+- `forgotten_at` 遗忘维度（forget / unforget）
+- `MemoryService` 扩展：get / list / archive / restore / unforget / supersede
+
+说明：Roadmap 初稿中的 `MemoryMetadata` 类型化类与 `MemoryLifecycle`
+独立产物，经 Phase 02 设计评审后调整——`metadata` 保持 `Mapping[str, str]`，
+生命周期由 `MemoryStatus` 与转换规则承载。详见
+[Memory System Specification](./memory-system-spec.md)。
 
 ### Phase 03 — Conversation Memory
 
