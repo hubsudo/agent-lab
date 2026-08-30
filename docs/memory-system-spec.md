@@ -308,10 +308,20 @@ recall(*, type=None, source=None, include_forgotten=False,
   不过滤状态（`SUPERSEDED` / `ARCHIVED` 也会返回）；`status` 传具体值时
   精确匹配。`include_forgotten=True` 包含 `forgotten_at` 非空的条目。
 - `recall()` 等价于 `list(status=ACTIVE, ...)` 并叠加 legacy 过滤
-  `importance > 0`（见 §8）。
+  `importance > 0`（见 §8）。它不提供 `status` 参数，保持 Phase 01
+  签名。
 - `type` / `source` 为精确匹配过滤器；返回顺序与 Store 的 `list()` 顺序
   一致；`limit` 为非负整数，负数抛出 `ValueError`。
-- Keyword、Vector、Hybrid Retrieval 和 Ranking 留到后续阶段。
+
+接口边界：
+
+- `list()` 是**结构化浏览 / 管理接口**：按 `status`、`type`、`source`
+  等确定性条件列出条目，服务于管理与诊断场景。
+- `recall()` 是**面向 Agent 的候选 Memory 获取接口**：Phase 02 只承担
+  Phase 01 兼容查询加 status / 遗忘基础过滤，不承担真正的 Retrieval
+  职责。
+- 两个接口都不得引入 semantic similarity、ranking、recency score、
+  importance ranking；这些属于后续 Retrieval 阶段（Phase 06 / 07）。
 
 ### 7.3 `update()`
 
