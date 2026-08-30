@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Mapping
 
+from .lifecycle import MemoryStatus
 from .models import MemoryItem
 from .store import MemoryStore
 
@@ -35,6 +36,12 @@ class MemoryService:
 
     def __init__(self, store: MemoryStore) -> None:
         self._store = store
+
+    def _require(self, item_id: str) -> MemoryItem:
+        current = self._store.get(item_id)
+        if current is None:
+            raise KeyError(f"memory item not found: {item_id}")
+        return current
 
     @property
     def store(self) -> MemoryStore:
@@ -78,18 +85,21 @@ class MemoryService:
         include_forgotten: bool = False,
         limit: int | None = None,
     ) -> list[MemoryItem]:
-        """Return active memories using stable, exact Phase 01 filters.
+        """Agent-facing candidate fetch: Phase 01 compat plus basic filters.
 
-        ``importance == 0`` is the Phase 01 soft-forgotten marker. The item
-        remains in the store and can be restored with ``update``.
+        Filters are deterministic only: status ACTIVE, not forgotten, and
+        the legacy ``importance > 0`` marker from Phase 01 (scheduled for
+        removal in Phase 09). No similarity, ranking, or recency here.
         """
 
         if limit is not None and limit < 0:
             raise ValueError("limit must be non-negative")
 
         items = self._store.list()
+        items = [item for item in items if item.status == MemoryStatus.ACTIVE]
         if not include_forgotten:
-            items = [item for item in items if item.importance > 0]
+            items = [item for item in items if item.forgotten_at is None]
+        items = [item for item in items if item.importance > 0]
         if type is not None:
             items = [item for item in items if item.type == type]
         if source is not None:
@@ -121,9 +131,25 @@ class MemoryService:
         return self._store.update(updated)
 
     def forget(self, item_id: str) -> MemoryItem:
-        """Soft-forget a memory by setting its importance to zero."""
+        """Mark a memory forgotten; the canonical marker is ``forgotten_at``.
 
-        return self.update(item_id, importance=0.0)
+        Repeated calls refresh the marker. Importance and status are
+        untouched — importance expresses value, not forgetting.
+        """
+
+        current = self._require(item_id)
+        now = _utc_now()
+        updated = replace(current, forgotten_at=now, updated_at=now)
+        return self._store.update(updated)
+
+    def unforget(self, item_id: str) -> MemoryItem:
+        """Clear the forgotten marker; idempotent for non-forgotten items."""
+
+        current = self._require(item_id)
+        if current.forgotten_at is None:
+            return current
+        updated = replace(current, forgotten_at=None, updated_at=_utc_now())
+        return self._store.update(updated)
 
     def delete(self, item_id: str) -> bool:
         """Permanently remove a memory item from the store."""

@@ -122,15 +122,23 @@ class MemoryServiceTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.service.update(item.id, unknown="value")
 
-    def test_forget_is_reversible_and_delete_is_permanent(self):
+    def test_forget_and_unforget_are_reversible_without_touching_importance(self):
         item = self.service.remember("temporary", importance=0.7)
 
         forgotten = self.service.forget(item.id)
-        self.assertEqual(forgotten.importance, 0.0)
+        self.assertIsNotNone(forgotten.forgotten_at)
+        self.assertEqual(forgotten.importance, 0.7)
         self.assertIs(self.store.get(item.id), forgotten)
+        self.assertNotIn(forgotten.id, [i.id for i in self.service.recall()])
+        self.assertIn(
+            forgotten.id,
+            [i.id for i in self.service.recall(include_forgotten=True)],
+        )
 
-        restored = self.service.update(item.id, importance=0.6)
+        restored = self.service.unforget(item.id)
+        self.assertIsNone(restored.forgotten_at)
         self.assertEqual(self.service.recall(), [restored])
+
         self.assertTrue(self.service.delete(item.id))
         self.assertIsNone(self.store.get(item.id))
 
@@ -145,6 +153,25 @@ class MemoryServiceTests(unittest.TestCase):
     def test_consolidation_is_explicitly_deferred(self):
         with self.assertRaises(NotImplementedError):
             self.service.consolidate()
+
+    def test_unforget_is_idempotent(self):
+        item = self.service.remember("stable")
+
+        unchanged = self.service.unforget(item.id)
+        self.assertIsNone(unchanged.forgotten_at)
+        self.assertEqual(unchanged.updated_at, item.updated_at)
+
+    def test_repeated_forget_refreshes_forgotten_at(self):
+        item = self.service.remember("again")
+        first = self.service.forget(item.id)
+        second = self.service.forget(item.id)
+        self.assertGreaterEqual(second.forgotten_at, first.forgotten_at)
+
+    def test_forget_and_unforget_require_existing_items(self):
+        with self.assertRaises(KeyError):
+            self.service.forget("missing")
+        with self.assertRaises(KeyError):
+            self.service.unforget("missing")
 
 
 if __name__ == "__main__":
