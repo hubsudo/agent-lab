@@ -13,6 +13,8 @@ from types import MappingProxyType
 from typing import Mapping
 from uuid import uuid4
 
+from .lifecycle import MemoryStatus
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -57,7 +59,10 @@ class MemoryItem:
     source: str | None = None
     created_at: datetime = field(default_factory=_utc_now)
     updated_at: datetime = field(default_factory=_utc_now)
-    valid_at: datetime | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+    forgotten_at: datetime | None = None
+    status: MemoryStatus = MemoryStatus.ACTIVE
     importance: float = 0.5
     metadata: Mapping[str, str] = field(default_factory=dict)
     provenance: Mapping[str, str] = field(default_factory=dict)
@@ -71,7 +76,10 @@ class MemoryItem:
         source: str | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
-        valid_at: datetime | None = None,
+        valid_from: datetime | None = None,
+        valid_until: datetime | None = None,
+        forgotten_at: datetime | None = None,
+        status: MemoryStatus = MemoryStatus.ACTIVE,
         importance: float = 0.5,
         metadata: Mapping[str, str] | None = None,
         provenance: Mapping[str, str] | None = None,
@@ -95,6 +103,8 @@ class MemoryItem:
             raise TypeError("importance must be a number between 0 and 1")
         if not isfinite(importance) or not 0 <= importance <= 1:
             raise ValueError("importance must be between 0 and 1")
+        if not isinstance(status, MemoryStatus):
+            raise TypeError("status must be a MemoryStatus member")
 
         normalised_created_at = _normalise_datetime(
             created_at or _utc_now(), "created_at"
@@ -105,8 +115,27 @@ class MemoryItem:
         if normalised_updated_at < normalised_created_at:
             raise ValueError("updated_at must not be earlier than created_at")
 
-        normalised_valid_at = (
-            _normalise_datetime(valid_at, "valid_at") if valid_at is not None else None
+        normalised_valid_from = (
+            _normalise_datetime(valid_from, "valid_from")
+            if valid_from is not None
+            else None
+        )
+        normalised_valid_until = (
+            _normalise_datetime(valid_until, "valid_until")
+            if valid_until is not None
+            else None
+        )
+        if (
+            normalised_valid_from is not None
+            and normalised_valid_until is not None
+            and normalised_valid_until < normalised_valid_from
+        ):
+            raise ValueError("valid_until must not be earlier than valid_from")
+
+        normalised_forgotten_at = (
+            _normalise_datetime(forgotten_at, "forgotten_at")
+            if forgotten_at is not None
+            else None
         )
 
         object.__setattr__(self, "content", content)
@@ -114,7 +143,10 @@ class MemoryItem:
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "created_at", normalised_created_at)
         object.__setattr__(self, "updated_at", normalised_updated_at)
-        object.__setattr__(self, "valid_at", normalised_valid_at)
+        object.__setattr__(self, "valid_from", normalised_valid_from)
+        object.__setattr__(self, "valid_until", normalised_valid_until)
+        object.__setattr__(self, "forgotten_at", normalised_forgotten_at)
+        object.__setattr__(self, "status", status)
         object.__setattr__(self, "importance", float(importance))
         object.__setattr__(
             self,

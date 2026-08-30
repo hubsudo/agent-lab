@@ -22,7 +22,7 @@ class MemoryItemTests(unittest.TestCase):
         self.assertEqual(item.source, "conversation")
         self.assertEqual(item.metadata, source_metadata)
         self.assertEqual(item.provenance, source_provenance)
-        self.assertIsNone(item.valid_at)
+        self.assertIsNone(item.valid_from)
         self.assertIsNotNone(item.created_at.tzinfo)
         self.assertEqual(item.created_at.tzinfo, timezone.utc)
         self.assertEqual(item.updated_at, item.created_at)

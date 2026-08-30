@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from types import MappingProxyType
 
 
 class MemoryType(StrEnum):
@@ -26,13 +27,15 @@ class MemoryStatus(StrEnum):
     ARCHIVED = "archived"
 
 
-_TRANSITIONS: dict[MemoryStatus, frozenset[MemoryStatus]] = {
-    MemoryStatus.ACTIVE: frozenset(
-        {MemoryStatus.SUPERSEDED, MemoryStatus.ARCHIVED}
-    ),
-    MemoryStatus.SUPERSEDED: frozenset(),
-    MemoryStatus.ARCHIVED: frozenset({MemoryStatus.ACTIVE}),
-}
+_TRANSITIONS: MappingProxyType[MemoryStatus, frozenset[MemoryStatus]] = MappingProxyType(
+    {
+        MemoryStatus.ACTIVE: frozenset(
+            {MemoryStatus.SUPERSEDED, MemoryStatus.ARCHIVED}
+        ),
+        MemoryStatus.SUPERSEDED: frozenset(),
+        MemoryStatus.ARCHIVED: frozenset({MemoryStatus.ACTIVE}),
+    }
+)
 
 
 def is_valid_transition(current: MemoryStatus, target: MemoryStatus) -> bool:
