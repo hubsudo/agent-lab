@@ -330,7 +330,8 @@ update(item_id, **changes) -> MemoryItem
 - `status` 与 `forgotten_at` 不在白名单内（`TypeError`）——状态变更必须
   走转换方法，遗忘必须走 `forget()` / `unforget()`。
 - 仅 `status=ACTIVE` 的 Memory 可被 `update()`；其余状态抛
-  `ValueError`（先 `restore()` 或建立替代关系）。
+  `ValueError`（`ARCHIVED` 可先 `restore()`；`SUPERSEDED` 是终态，不可
+  再修改）。
 
 ### 7.4 `forget()` 与 `unforget()`
 
@@ -390,9 +391,11 @@ supersede(item_id, content, **overrides) -> MemoryItem
 `overrides` 白名单：`type`、`source`、`importance`、`metadata`、
 `provenance`、`valid_from`、`valid_until`；未知键抛 `TypeError`。
 
-原子性说明：先校验旧条目、再 `add()` 后继、再 `update()` 旧条目。Phase
-02 的 `InMemoryStore` 为单线程顺序操作，该顺序保证失败不会留下半完成的
-替代状态；真正的事务语义随 Phase 10 持久化 Store 引入。
+原子性：`supersede()` 必须具有原子领域语义。实现采用**预校验 + 可回滚
+补偿**：先完成全部校验，再 `add()` 后继、再 `update()` 旧条目；若
+`update()` 失败，必须回滚刚创建的后继（将其从 Store 中删除）并重新抛出
+异常，保证失败不留下半完成的替代状态。真正的持久化事务随 Phase 10 的
+PostgreSQL Store 实现，Service 层接口不变。
 
 ### 7.7 `delete()`
 
@@ -464,7 +467,7 @@ tests/
 - [ ] `MemoryService` 仅通过 `MemoryStore` 访问存储。
 - [ ] `InMemoryStore` 仍是唯一 Store 实现，Phase 01 语义不变。
 - [ ] `supersede()` 原子创建后继并建立双向 provenance 血缘与 valid 区间
-      闭合。
+      闭合；`update()` 失败时回滚后继，不留下半状态。
 - [ ] 测试覆盖：Memory Type、Lifecycle、update、supersede、archive、
       forget、非法状态转换、provenance、temporal fields。
 - [ ] 除 §8 显式清单外不破坏 Phase 01 行为。
